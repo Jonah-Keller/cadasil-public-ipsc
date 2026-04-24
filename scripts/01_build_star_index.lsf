@@ -1,0 +1,37 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 8
+#BSUB -R "rusage[mem=40000]"
+#BSUB -W 4:00
+#BSUB -J star_index
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/star_index_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/star_index_%J.err
+
+set -euo pipefail
+
+module purge
+module load star/2.7.11b
+
+REF_DIR="/sc/arion/scratch/kellej10/cadasil_public_ipsc/reference"
+STAR_IDX="${REF_DIR}/star_index"
+GENOME="${REF_DIR}/GRCh38.primary_assembly.genome.fa"
+GTF="${REF_DIR}/gencode.v44.primary_assembly.annotation.gtf"
+
+mkdir -p "$STAR_IDX"
+mkdir -p /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs
+
+echo "=== Building STAR index ==="
+echo "Genome: $GENOME"
+echo "GTF: $GTF"
+
+# sjdbOverhang = read_length - 1 = 76 - 1 = 75
+STAR --runMode genomeGenerate \
+     --runThreadN 8 \
+     --genomeDir "$STAR_IDX" \
+     --genomeFastaFiles "$GENOME" \
+     --sjdbGTFfile "$GTF" \
+     --sjdbOverhang 75
+
+echo "=== STAR index build complete ==="
+ls -lh "$STAR_IDX"

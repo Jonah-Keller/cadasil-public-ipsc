@@ -1,0 +1,114 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 8
+#BSUB -R "rusage[mem=16000]"
+#BSUB -W 2:00
+#BSUB -J cadasil_count
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/count_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/count_%J.err
+
+set -euo pipefail
+
+module purge
+module load subread/2.0.1
+module load samtools/1.21
+
+export OPENBLAS_NUM_THREADS=4
+export OMP_NUM_THREADS=4
+
+DATA_DIR="/sc/arion/scratch/kellej10/cadasil_public_ipsc"
+REF_DIR="${DATA_DIR}/reference"
+GTF="${REF_DIR}/gencode.v44.primary_assembly.annotation.gtf"
+ALIGN_DIR="${DATA_DIR}/aligned"
+COUNTS_DIR="${DATA_DIR}/counts"
+
+mkdir -p "$COUNTS_DIR"
+
+# Collect all aligned BAMs
+BAM_FILES=()
+for BAM in ${ALIGN_DIR}/*_Aligned.sortedByCoord.out.bam; do
+    if [[ -f "$BAM" ]]; then
+        BAM_FILES+=("$BAM")
+    fi
+done
+
+echo "Found ${#BAM_FILES[@]} aligned BAMs"
+
+echo "=== Step 1: featureCounts — gene-level counts ==="
+# subread 2.0.1: use -p (not --countReadPairs) for paired-end
+featureCounts -a "$GTF" \
+              -o "${COUNTS_DIR}/gene_counts.txt" \
+              -g gene_id \
+              -t exon \
+              -p \
+              -B \
+              -s 2 \
+              -T 8 \
+              --primary \
+              "${BAM_FILES[@]}"
+
+echo "=== Step 2: featureCounts — transcript-level counts ==="
+echo "  (For FLT1 isoforms, FN1 variants, NOTCH3 transcripts)"
+featureCounts -a "$GTF" \
+              -o "${COUNTS_DIR}/transcript_counts.txt" \
+              -g transcript_id \
+              -t exon \
+              -f \
+              -O \
+              -p \
+              -B \
+              -s 2 \
+              -T 8 \
+              --primary \
+              --fracOverlap 0.2 \
+              "${BAM_FILES[@]}"
+
+echo "=== Step 3: NOTCH3 variant pileup (targeted, AVM-style) ==="
+# NOTCH3 on chr19, GRCh38 coordinates (from Ensembl VEP):
+#   p.R153C: chr19:15192182 C>T (c.457C>T, exon 4)
+#   p.C224Y: chr19:15191968 G>A (c.671G>A, exon 5)
+
+# Index reference if needed
+if [[ ! -f "${REF_DIR}/GRCh38.primary_assembly.genome.fa.fai" ]]; then
+    echo "  Indexing reference FASTA..."
+    samtools faidx "${REF_DIR}/GRCh38.primary_assembly.genome.fa"
+fi
+
+NOTCH3_REGION="chr19:15159038-15200995"
+
+declare -A SAMPLE_NAMES
+SAMPLE_NAMES[WZ12_CADASIL_Control]="wild_type"
+SAMPLE_NAMES[WZ16_CADASIL_C224Y]="NOTCH3_p.C224Y"
+SAMPLE_NAMES[WZ4_CADASIL_Control]="wild_type"
+SAMPLE_NAMES[WZ8_CADASIL_Control]="wild_type"
+SAMPLE_NAMES[XZ5_CADASIL_R153C]="NOTCH3_p.R153C"
+SAMPLE_NAMES[XZ6_CADASIL_R153C_isoCtrl]="mutation_corrected"
+SAMPLE_NAMES[XZ7_CADASIL_C224Y_isoCtrl]="mutation_corrected"
+
+echo "  Targeted pileup at NOTCH3 region for all samples"
+for BAM in "${BAM_FILES[@]}"; do
+    SAMPLE=$(basename "$BAM" | sed 's/_Aligned.sortedByCoord.out.bam//')
+    GENOTYPE="${SAMPLE_NAMES[$SAMPLE]:-unknown}"
+    echo ""
+    echo "  --- $SAMPLE ($GENOTYPE) ---"
+
+    samtools mpileup -r "$NOTCH3_REGION" \
+                     -f "${REF_DIR}/GRCh38.primary_assembly.genome.fa" \
+                     -q 20 -Q 20 --no-BAQ \
+                     "$BAM" \
+        | awk '$4 >= 1' \
+        > "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt"
+
+    echo "    Positions covered: $(wc -l < ${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt)"
+    echo "    R153C (chr19:15192182):"
+    awk '$2 == 15192182 {printf "      depth=%s ref_base=%s bases=%s\n", $4, $3, $5}' "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt" || echo "      No coverage"
+    echo "    C224Y (chr19:15191968):"
+    awk '$2 == 15191968 {printf "      depth=%s ref_base=%s bases=%s\n", $4, $3, $5}' "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt" || echo "      No coverage"
+done
+
+echo ""
+echo "=== Counting complete ==="
+echo "Gene counts:        ${COUNTS_DIR}/gene_counts.txt"
+echo "Transcript counts:  ${COUNTS_DIR}/transcript_counts.txt"
+echo "NOTCH3 pileups:     ${COUNTS_DIR}/*_NOTCH3_pileup.txt"

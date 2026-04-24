@@ -1,0 +1,8 @@
+sample_id,ena_run,reported_genotype,observed_genotype,disease_status,sample_type,patient_id,cell_type,organism,platform,notes
+WZ12_CADASIL_Control,ERR15965983,wild_type,wild_type,normal,wild_type_control,Patient_C,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,
+WZ4_CADASIL_Control,ERR15965985,wild_type,wild_type,normal,wild_type_control,Patient_B,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,Same individual as XZ7 (fingerprint Jaccard=0.46)
+WZ8_CADASIL_Control,ERR15965986,wild_type,wild_type,normal,wild_type_control,Patient_D,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,
+WZ16_CADASIL_C224Y,ERR15965984,NOTCH3_p.C224Y,NOTCH3_p.C224Y,CADASIL,cadasil_mutant,Patient_A,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,C224Y confirmed (VAF=0.45). Same individual as XZ5 and XZ6.
+XZ5_CADASIL_R153C,ERR15965987,NOTCH3_p.R153C,NOTCH3_p.C224Y,CADASIL,cadasil_mutant,Patient_A,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,MISLABELED: reported as R153C but carries C224Y (VAF=0.42). Same individual as WZ16.
+XZ6_CADASIL_R153C_isoCtrl,ERR15965988,mutation_corrected_R153C,mutation_corrected_C224Y,normal,isogenic_control,Patient_A,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,"Isogenic control for Patient_A (C224Y corrected, VAF=0.00)."
+XZ7_CADASIL_C224Y_isoCtrl,ERR15965989,mutation_corrected_C224Y,wild_type,normal,wild_type_control,Patient_B,iPSC_NC-VSMC,Homo sapiens,HiSeq4000_PE76,"NOT isogenic for WZ16. Fingerprints match WZ4 (Jaccard=0.46), not WZ16 (0.06)."

@@ -1,0 +1,7 @@
+step,genes_removed,note
+Starting genes,62754,
+Mitochondrial (chrM),37,62717 remaining
+Ribosomal proteins (RPS/RPL/MRPS/MRPL),1881,60836 remaining
+Non-informative biotypes,18590,42246 remaining
+Lowly expressed (< 1 CPM in 2+ samples),27639,14607 remaining
+Final filtered gene count,14607,

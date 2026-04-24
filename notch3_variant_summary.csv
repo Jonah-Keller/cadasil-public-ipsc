@@ -1,0 +1,8 @@
+sample_name,sample_type,expected_mutation,p.C224Y_c.671G>A_depth,p.C224Y_c.671G>A_ref_count,p.C224Y_c.671G>A_alt_count,p.C224Y_c.671G>A_VAF,p.R153C_c.457C>T_depth,p.R153C_c.457C>T_ref_count,p.R153C_c.457C>T_alt_count,p.R153C_c.457C>T_VAF
+WZ12_CADASIL_Control,control,none,283,282,0,0.0,174,172,0,0.0
+WZ16_CADASIL_C224Y,CADASIL,p.C224Y,251,137,114,0.4542,162,162,0,0.0
+WZ4_CADASIL_Control,control,none,46,46,0,0.0,27,27,0,0.0
+WZ8_CADASIL_Control,control,none,291,290,0,0.0,162,161,0,0.0
+XZ5_CADASIL_R153C,CADASIL,p.R153C,464,271,193,0.4159,485,485,0,0.0
+XZ6_CADASIL_R153C_isoCtrl,isogenic_control,corrected_R153C,72,67,0,0.0,90,89,0,0.0
+XZ7_CADASIL_C224Y_isoCtrl,isogenic_control,corrected_C224Y,270,267,0,0.0,320,316,1,0.0031

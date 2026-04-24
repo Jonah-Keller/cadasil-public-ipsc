@@ -1,0 +1,35 @@
+# Large binaries — never commit
+*.bam
+*.bam.bai
+*.bai
+*.fastq
+*.fastq.gz
+*.fq.gz
+*.fq
+*.sra
+*.vcf
+*.vcf.gz
+*.vcf.gz.tbi
+*.tbi
+*.zip
+
+# Pipeline intermediates (live on scratch, regenerate from scripts)
+aligned/
+counts/
+logs/
+snp_panel/raw/
+salmon_quant/
+reference/
+fingerprint/
+
+# Python / R runtime
+__pycache__/
+*.pyc
+.Rhistory
+.RData
+.Rproj.user/
+
+# Editor / OS
+.DS_Store
+.vscode/
+*.swp

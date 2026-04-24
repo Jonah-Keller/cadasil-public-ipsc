@@ -1,0 +1,200 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 8
+#BSUB -R "rusage[mem=40000]"
+#BSUB -W 12:00
+#BSUB -J cadasil_align
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/align_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/align_%J.err
+
+set -euo pipefail
+
+module purge
+module load star/2.7.11b
+module load samtools/1.21
+module load subread/2.0.1
+
+export OPENBLAS_NUM_THREADS=4
+export OMP_NUM_THREADS=4
+
+# Directories
+DATA_DIR="/sc/arion/scratch/kellej10/cadasil_public_ipsc"
+REF_DIR="${DATA_DIR}/reference"
+STAR_IDX="${REF_DIR}/star_index"
+GTF="${REF_DIR}/gencode.v44.primary_assembly.annotation.gtf"
+ALIGN_DIR="${DATA_DIR}/aligned"
+FASTQ_DIR="${DATA_DIR}/fastqs"
+COUNTS_DIR="${DATA_DIR}/counts"
+
+mkdir -p "$ALIGN_DIR" "$FASTQ_DIR" "$COUNTS_DIR"
+
+# Sample mapping: ERR_ID -> Sample_Name
+declare -A SAMPLES
+SAMPLES[ERR15965983]="WZ12_CADASIL_Control"
+SAMPLES[ERR15965984]="WZ16_CADASIL_C224Y"
+SAMPLES[ERR15965985]="WZ4_CADASIL_Control"
+SAMPLES[ERR15965986]="WZ8_CADASIL_Control"
+SAMPLES[ERR15965987]="XZ5_CADASIL_R153C"
+SAMPLES[ERR15965988]="XZ6_CADASIL_R153C_isoCtrl"
+SAMPLES[ERR15965989]="XZ7_CADASIL_C224Y_isoCtrl"
+
+echo "=== Step 1: Convert uBAMs to FASTQs (if FASTQs don't exist) ==="
+for ERR in "${!SAMPLES[@]}"; do
+    SAMPLE="${SAMPLES[$ERR]}"
+    FQ1="${FASTQ_DIR}/${ERR}_1.fastq.gz"
+    FQ2="${FASTQ_DIR}/${ERR}_2.fastq.gz"
+
+    # Check if FASTQs already exist (user may have downloaded some)
+    if [[ -f "${DATA_DIR}/${ERR}_1.fastq.gz" ]]; then
+        mv "${DATA_DIR}/${ERR}_1.fastq.gz" "$FQ1" 2>/dev/null || true
+        mv "${DATA_DIR}/${ERR}_2.fastq.gz" "$FQ2" 2>/dev/null || true
+    fi
+
+    if [[ -f "$FQ1" && -f "$FQ2" ]]; then
+        echo "  FASTQs exist for $SAMPLE ($ERR), skipping conversion"
+        continue
+    fi
+
+    BAM="${DATA_DIR}/${ERR}.bam"
+    if [[ ! -f "$BAM" ]]; then
+        echo "  WARNING: No BAM or FASTQ found for $ERR ($SAMPLE), skipping"
+        continue
+    fi
+
+    echo "  Converting $ERR ($SAMPLE) BAM -> FASTQ"
+    samtools fastq -@ 4 -1 "$FQ1" -2 "$FQ2" -0 /dev/null -s /dev/null "$BAM"
+done
+
+echo "=== Step 2: STAR alignment ==="
+for ERR in "${!SAMPLES[@]}"; do
+    SAMPLE="${SAMPLES[$ERR]}"
+    FQ1="${FASTQ_DIR}/${ERR}_1.fastq.gz"
+    FQ2="${FASTQ_DIR}/${ERR}_2.fastq.gz"
+    OUT_PREFIX="${ALIGN_DIR}/${SAMPLE}_"
+
+    if [[ -f "${OUT_PREFIX}Aligned.sortedByCoord.out.bam" ]]; then
+        echo "  Alignment exists for $SAMPLE, skipping"
+        continue
+    fi
+
+    if [[ ! -f "$FQ1" || ! -f "$FQ2" ]]; then
+        echo "  WARNING: Missing FASTQs for $SAMPLE, skipping"
+        continue
+    fi
+
+    echo "  Aligning $SAMPLE ($ERR)"
+    STAR --runMode alignReads \
+         --runThreadN 8 \
+         --genomeDir "$STAR_IDX" \
+         --readFilesIn "$FQ1" "$FQ2" \
+         --readFilesCommand zcat \
+         --outSAMtype BAM SortedByCoordinate \
+         --outSAMattributes NH HI AS NM MD \
+         --quantMode GeneCounts TranscriptomeSAM \
+         --outFileNamePrefix "$OUT_PREFIX" \
+         --outTmpDir "${ALIGN_DIR}/tmp_${SAMPLE}"
+
+    # Index the BAM
+    samtools index "${OUT_PREFIX}Aligned.sortedByCoord.out.bam"
+
+    echo "  $SAMPLE alignment done"
+done
+
+echo "=== Step 3: featureCounts — gene-level counts ==="
+# Collect all aligned BAMs
+BAM_FILES=()
+BAM_LABELS=()
+for ERR in "${!SAMPLES[@]}"; do
+    SAMPLE="${SAMPLES[$ERR]}"
+    BAM="${ALIGN_DIR}/${SAMPLE}_Aligned.sortedByCoord.out.bam"
+    if [[ -f "$BAM" ]]; then
+        BAM_FILES+=("$BAM")
+        BAM_LABELS+=("$SAMPLE")
+    fi
+done
+
+if [[ ${#BAM_FILES[@]} -eq 0 ]]; then
+    echo "ERROR: No aligned BAMs found. Exiting."
+    exit 1
+fi
+
+echo "  Running featureCounts on ${#BAM_FILES[@]} samples (gene-level)"
+featureCounts -a "$GTF" \
+              -o "${COUNTS_DIR}/gene_counts.txt" \
+              -g gene_id \
+              -t exon \
+              -p --countReadPairs \
+              -s 2 \
+              -T 8 \
+              --primary \
+              "${BAM_FILES[@]}"
+
+echo "=== Step 4: featureCounts — transcript-level counts ==="
+echo "  (For FLT1 isoforms, FN1 variants, NOTCH3 transcripts)"
+featureCounts -a "$GTF" \
+              -o "${COUNTS_DIR}/transcript_counts.txt" \
+              -g transcript_id \
+              -t exon \
+              -f \
+              -O \
+              -p --countReadPairs \
+              -s 2 \
+              -T 8 \
+              --primary \
+              --fracOverlap 0.2 \
+              "${BAM_FILES[@]}"
+
+echo "=== Step 5: NOTCH3 variant pileup (targeted, AVM-style) ==="
+# NOTCH3 on chr19, GRCh38 coordinates (from Ensembl VEP):
+#   p.R153C: chr19:15192182 C>T (c.457C>T, exon 4)
+#   p.C224Y: chr19:15191968 G>A (c.671G>A, exon 5)
+# Full gene region for context: chr19:15,159,038-15,200,995
+
+# First, index the reference if not already done
+if [[ ! -f "${REF_DIR}/GRCh38.primary_assembly.genome.fa.fai" ]]; then
+    echo "  Indexing reference FASTA..."
+    samtools faidx "${REF_DIR}/GRCh38.primary_assembly.genome.fa"
+fi
+
+# Create a VCF-style target file for the two NOTCH3 variants
+VARIANT_BED="${COUNTS_DIR}/notch3_variants.bed"
+cat > "$VARIANT_BED" <<'VAREOF'
+chr19	15192181	15192182	p.R153C_c.457C>T
+chr19	15191967	15191968	p.C224Y_c.671G>A
+VAREOF
+
+# Pileup at the full NOTCH3 gene region (captures both variant sites + context)
+NOTCH3_REGION="chr19:15159038-15200995"
+
+echo "  Targeted pileup at NOTCH3 region for all samples"
+for ERR in "${!SAMPLES[@]}"; do
+    SAMPLE="${SAMPLES[$ERR]}"
+    BAM="${ALIGN_DIR}/${SAMPLE}_Aligned.sortedByCoord.out.bam"
+    if [[ -f "$BAM" ]]; then
+        echo "  --- $SAMPLE ---"
+
+        # Full gene pileup (for downstream parsing)
+        samtools mpileup -r "$NOTCH3_REGION" \
+                         -f "${REF_DIR}/GRCh38.primary_assembly.genome.fa" \
+                         -q 20 -Q 20 --no-BAQ \
+                         "$BAM" \
+            | awk '$4 >= 1' \
+            > "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt"
+
+        # Quick report at the two exact variant positions
+        echo "    R153C (chr19:15192182):"
+        awk '$2 == 15192182' "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt" || echo "    No coverage"
+        echo "    C224Y (chr19:15191968):"
+        awk '$2 == 15191968' "${COUNTS_DIR}/${SAMPLE}_NOTCH3_pileup.txt" || echo "    No coverage"
+    fi
+done
+
+echo ""
+echo "=== Pipeline complete ==="
+echo "Gene counts:        ${COUNTS_DIR}/gene_counts.txt"
+echo "Transcript counts:  ${COUNTS_DIR}/transcript_counts.txt"
+echo "NOTCH3 pileups:     ${COUNTS_DIR}/*_NOTCH3_pileup.txt"
+echo "Variant targets:    ${VARIANT_BED}"
+echo ""
+echo "Next: run 03_build_matrices.py to assemble final outputs"

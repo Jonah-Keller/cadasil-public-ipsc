@@ -1,0 +1,114 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 4
+#BSUB -R "rusage[mem=8000]"
+#BSUB -W 1:00
+#BSUB -J fingerprint
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/fingerprint_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/fingerprint_%J.err
+
+set -euo pipefail
+
+module purge
+module load samtools/1.21
+
+ALIGN_DIR="/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned"
+REF="/sc/arion/scratch/kellej10/cadasil_public_ipsc/reference/GRCh38.primary_assembly.genome.fa"
+OUT="/sc/arion/scratch/kellej10/cadasil_public_ipsc/counts/fingerprint"
+mkdir -p "$OUT"
+
+# Pick highly expressed housekeeping genes across different chromosomes
+# to find germline heterozygous SNPs for sample fingerprinting
+REGIONS=(
+    "chr1:11106535-11262507"    # MTOR
+    "chr2:215590463-215674291"  # FN1 (we know it's highly expressed)
+    "chr3:52559169-52601612"    # STAB1
+    "chr5:150399072-150481619"  # VCAN
+    "chr7:73442284-73481620"    # ELN
+    "chr9:133249857-133283337"  # COL5A1
+    "chr11:17076964-17234199"   # PLEKHA7
+    "chr12:47741559-47848475"   # COL2A1 region
+    "chr15:89356010-89431724"   # POLG
+    "chr17:82063268-82084823"   # FN3K
+    "chr19:15159038-15200995"   # NOTCH3
+    "chr22:36661484-36690225"   # MYH9
+)
+
+echo "=== Sample fingerprinting via germline SNPs ==="
+echo "Pileup across ${#REGIONS[@]} gene regions on different chromosomes"
+echo ""
+
+# Run pileup for each sample across all regions
+for BAM in ${ALIGN_DIR}/*_Aligned.sortedByCoord.out.bam; do
+    SAMPLE=$(basename "$BAM" | sed 's/_Aligned.sortedByCoord.out.bam//')
+    echo "Processing $SAMPLE..."
+
+    REGION_STR=""
+    for R in "${REGIONS[@]}"; do
+        REGION_STR="$REGION_STR -r $R"
+    done
+
+    # Get pileup and filter for heterozygous positions (VAF 0.2-0.8, depth>=15)
+    for R in "${REGIONS[@]}"; do
+        samtools mpileup -r "$R" -f "$REF" -q 20 -Q 20 --no-BAQ "$BAM"
+    done | awk '$4 >= 15 {
+        n=split($5,a,"");
+        ref=0; A=0; C=0; G=0; T=0;
+        for(i=1;i<=n;i++){
+            c=a[i];
+            if(c=="." || c==",") ref++;
+            else if(c=="A" || c=="a") A++;
+            else if(c=="C" || c=="c") C++;
+            else if(c=="G" || c=="g") G++;
+            else if(c=="T" || c=="t") T++;
+        }
+        total=ref+A+C+G+T;
+        if(total<15) next;
+        # Find the most common non-ref allele
+        max_alt=A; alt_base="A";
+        if(C>max_alt){max_alt=C; alt_base="C"}
+        if(G>max_alt){max_alt=G; alt_base="G"}
+        if(T>max_alt){max_alt=T; alt_base="T"}
+        vaf=max_alt/total;
+        if(vaf > 0.2 && vaf < 0.8 && max_alt >= 5)
+            printf "%s\t%s\t%s\t%s\t%s\t%s\t%.4f\n", $1, $2, $3, total, alt_base, max_alt, vaf
+    }' > "${OUT}/${SAMPLE}_het_snps.txt"
+
+    echo "  Found $(wc -l < ${OUT}/${SAMPLE}_het_snps.txt) heterozygous positions"
+done
+
+echo ""
+echo "=== Pairwise concordance ==="
+echo "If two samples are from the same cell line, they should share most het SNPs"
+echo ""
+
+# Compare all pairs
+for F1 in ${OUT}/*_het_snps.txt; do
+    S1=$(basename "$F1" | sed 's/_het_snps.txt//')
+    for F2 in ${OUT}/*_het_snps.txt; do
+        S2=$(basename "$F2" | sed 's/_het_snps.txt//')
+        if [[ "$S1" < "$S2" ]]; then
+            # Count positions shared (same chr+pos)
+            SHARED=$(awk '{print $1"_"$2}' "$F1" "$F2" | sort | uniq -d | wc -l)
+            TOTAL1=$(wc -l < "$F1")
+            TOTAL2=$(wc -l < "$F2")
+            UNION=$(awk '{print $1"_"$2}' "$F1" "$F2" | sort -u | wc -l)
+            if [ "$UNION" -gt 0 ]; then
+                JACCARD=$(echo "scale=4; $SHARED / $UNION" | bc)
+            else
+                JACCARD="0"
+            fi
+            printf "%-40s vs %-40s shared=%4d union=%4d jaccard=%s\n" "$S1" "$S2" "$SHARED" "$UNION" "$JACCARD"
+        fi
+    done
+done
+
+echo ""
+echo "=== Expected pairs (same cell line) ==="
+echo "  XZ5_CADASIL_R153C <-> XZ6_CADASIL_R153C_isoCtrl (if truly same line)"
+echo "  WZ16_CADASIL_C224Y <-> XZ7_CADASIL_C224Y_isoCtrl (if truly same line)"
+echo "  WZ12, WZ4, WZ8 are independent wild-type controls"
+echo ""
+echo "High Jaccard (>0.7) = likely same cell line"
+echo "Low Jaccard (<0.3) = likely different individuals"

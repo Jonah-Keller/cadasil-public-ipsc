@@ -1,0 +1,15 @@
+Status	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/WZ12_CADASIL_Control_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/WZ16_CADASIL_C224Y_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/WZ4_CADASIL_Control_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/WZ8_CADASIL_Control_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/XZ5_CADASIL_R153C_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/XZ6_CADASIL_R153C_isoCtrl_Aligned.sortedByCoord.out.bam	/sc/arion/scratch/kellej10/cadasil_public_ipsc/aligned/XZ7_CADASIL_C224Y_isoCtrl_Aligned.sortedByCoord.out.bam
+Assigned	33530419	25956674	27844794	28314187	31702955	30039444	26240819
+Unassigned_Unmapped	0	0	0	0	0	0	0
+Unassigned_Read_Type	0	0	0	0	0	0	0
+Unassigned_Singleton	505	424	256	393	112	103	213
+Unassigned_MappingQuality	0	0	0	0	0	0	0
+Unassigned_Chimera	0	0	0	0	0	0	0
+Unassigned_FragmentLength	0	0	0	0	0	0	0
+Unassigned_Duplicate	0	0	0	0	0	0	0
+Unassigned_MultiMapping	9648200	5981618	7582064	6099497	3829941	3661120	3206119
+Unassigned_Secondary	0	0	0	0	0	0	0
+Unassigned_NonSplit	0	0	0	0	0	0	0
+Unassigned_NoFeatures	1232849	1164887	1293437	1333450	1277140	979899	942369
+Unassigned_Overlapping_Length	0	0	0	0	0	0	0
+Unassigned_Ambiguity	1095248	826718	888318	904873	980743	816817	771388
