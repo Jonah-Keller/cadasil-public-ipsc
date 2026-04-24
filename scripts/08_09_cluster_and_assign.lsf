@@ -1,0 +1,29 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 2
+#BSUB -R "rusage[mem=4000]"
+#BSUB -W 0:15
+#BSUB -J vsmc_cluster_assign
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/cluster_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/cluster_%J.err
+
+# ============================================================================
+# 08_09_cluster_and_assign.lsf -- wrapper: donor clustering + reassignment
+# ----------------------------------------------------------------------------
+# Depends on 07_genotype_snps.lsf output and 03_build_matrices.py
+# notch3_variant_summary.csv. Submit with -w "done(vsmc_genotype_snps)".
+# ============================================================================
+set -euo pipefail
+module purge
+
+# Absolute path to orion-spatial python (compute-node conda gotcha — no
+# `conda run --no-banner` on compute nodes).
+PY=/sc/arion/work/kellej10/orion/envs/envs/orion-spatial/bin/python
+
+export PANEL_GT_TSV=/sc/arion/scratch/kellej10/cadasil_public_ipsc/genotype/vsmc_panel_genotypes.tsv
+export COHORT_DONOR_VARIANTS="R153C C224Y"
+
+SCRIPT_DIR=/sc/arion/work/kellej10/cadasil_public_ipsc/scripts
+$PY $SCRIPT_DIR/08_cluster_donors.py
+$PY $SCRIPT_DIR/09_assign_genotype.py

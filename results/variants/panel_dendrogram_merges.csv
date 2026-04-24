@@ -1,0 +1,5 @@
+step,clusterA_root,clusterB_root,distance_1minusJaccardHet,merged_size
+1,WZ16_CADASIL_C224Y,XZ5_CADASIL_R153C,0.0239,2
+2,WZ4_CADASIL_Control,XZ7_CADASIL_C224Y_isoCtrl,0.0327,2
+3,WZ16_CADASIL_C224Y,XZ6_CADASIL_R153C_isoCtrl,0.0376,3
+4,WZ12_CADASIL_Control,WZ8_CADASIL_Control,0.6808,2

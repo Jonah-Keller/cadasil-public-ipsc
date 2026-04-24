@@ -1,0 +1,99 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 8
+#BSUB -R "rusage[mem=8000]"
+#BSUB -W 3:00
+#BSUB -J vsmc_genotype_snps
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/genotype_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/genotype_%J.err
+
+# ============================================================================
+# 07_genotype_snps.lsf -- joint genotyping at NGSCheckMate common-SNP panel
+# ----------------------------------------------------------------------------
+# Ported from cadasil_elab_ipsc_ec (same panel, same flow). Runs bcftools
+# mpileup + call across the 7 VSMC BAMs at ~21k biallelic common SNP sites.
+# Output is consumed by 08_cluster_donors.py to infer donor identity via
+# pairwise Jaccard_het clustering (authoritative over the submitted metadata).
+# ============================================================================
+set -euo pipefail
+
+module purge
+module load bcftools/1.17
+module load htslib/1.21
+
+PROJ=/sc/arion/work/kellej10/cadasil_public_ipsc
+SCRATCH=/sc/arion/scratch/kellej10/cadasil_public_ipsc
+REF_FA=${SCRATCH}/reference/GRCh38.primary_assembly.genome.fa
+ALIGN_DIR=${SCRATCH}/aligned
+
+PANEL_DIR=${SCRATCH}/snp_panel
+PANEL_TSV=${PANEL_DIR}/snp_targets.tsv
+OUT_DIR=${SCRATCH}/genotype
+mkdir -p "$OUT_DIR"
+OUT_VCF=${OUT_DIR}/vsmc_panel_genotypes.vcf.gz
+OUT_GT_TSV=${OUT_DIR}/vsmc_panel_genotypes.tsv
+
+# 7 VSMC samples (friendly labels match BAM filenames in this repo's scratch).
+SAMPLES=(
+  WZ12_CADASIL_Control
+  WZ16_CADASIL_C224Y
+  WZ4_CADASIL_Control
+  WZ8_CADASIL_Control
+  XZ5_CADASIL_R153C
+  XZ6_CADASIL_R153C_isoCtrl
+  XZ7_CADASIL_C224Y_isoCtrl
+)
+
+# Panel TSV is symlinked from the iEC scratch (same GRCh38 panel). Index if
+# the symlink's target lacks a tabix index.
+if [[ ! -s "${PANEL_TSV}.gz.tbi" ]]; then
+  bgzip -kf "$PANEL_TSV"
+  tabix -s1 -b2 -e2 "${PANEL_TSV}.gz"
+fi
+
+BAM_LIST=${OUT_DIR}/bam_list.txt
+: > "$BAM_LIST"
+for s in "${SAMPLES[@]}"; do
+  echo "${ALIGN_DIR}/${s}_Aligned.sortedByCoord.out.bam" >> "$BAM_LIST"
+done
+wc -l "$BAM_LIST"
+
+SAMPLE_NAMES=${OUT_DIR}/sample_names.txt
+printf '%s\n' "${SAMPLES[@]}" > "$SAMPLE_NAMES"
+
+echo "[07] bcftools mpileup + call at ${PANEL_TSV}.gz across ${#SAMPLES[@]} BAMs"
+
+bcftools mpileup \
+    -f "$REF_FA" \
+    -T "${PANEL_TSV}.gz" \
+    -b "$BAM_LIST" \
+    -a FORMAT/AD,FORMAT/DP \
+    -q 20 -Q 20 \
+    --threads 8 \
+    -Ou 2> "${OUT_DIR}/mpileup.log" \
+  | bcftools call \
+    -m \
+    -T "${PANEL_TSV}.gz" \
+    --threads 4 \
+    -Oz -o "$OUT_VCF" 2> "${OUT_DIR}/call.log"
+
+bcftools reheader -s "$SAMPLE_NAMES" "$OUT_VCF" -o "${OUT_VCF}.tmp"
+mv "${OUT_VCF}.tmp" "$OUT_VCF"
+bcftools index -t "$OUT_VCF"
+
+echo "[07] dumping genotype matrix to TSV"
+{
+  printf "CHROM\tPOS\tREF\tALT"
+  for s in "${SAMPLES[@]}"; do printf "\t%s" "$s"; done
+  printf "\n"
+  bcftools view -m2 -M2 -v snps "$OUT_VCF" \
+    | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%GT:%DP:%AD]\n'
+} > "$OUT_GT_TSV"
+
+echo "[07] sites in VCF:"
+bcftools view -H "$OUT_VCF" | wc -l
+echo "[07] biallelic SNP sites:"
+bcftools view -H -m2 -M2 -v snps "$OUT_VCF" | wc -l
+echo "[07] done: $OUT_VCF"
+echo "[07] done: $OUT_GT_TSV"

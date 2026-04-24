@@ -22,6 +22,10 @@ salmon_quant/
 reference/
 fingerprint/
 
+# Symlinked shared reference files (live in iEC repo)
+data/tx2gene_gencode_v44.csv
+data/signature_unified_betas.csv
+
 # Python / R runtime
 __pycache__/
 *.pyc

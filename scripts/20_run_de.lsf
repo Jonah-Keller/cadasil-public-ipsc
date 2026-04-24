@@ -1,0 +1,35 @@
+#!/bin/bash
+#BSUB -P acc_vascbrain
+#BSUB -q premium
+#BSUB -n 4
+#BSUB -R "rusage[mem=24000]"
+#BSUB -W 1:00
+#BSUB -J vsmc_de_all
+#BSUB -o /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/de_all_%J.out
+#BSUB -e /sc/arion/scratch/kellej10/cadasil_public_ipsc/logs/de_all_%J.err
+
+# ============================================================================
+# 20_run_de.lsf -- wrapper: gene DE + isoform DE + isoform annotation.
+# ----------------------------------------------------------------------------
+# Depends on data/sample_metadata_reassigned.csv (from 09_assign_genotype.py)
+# and data/salmon_quant/<sample>/quant.sf. Submit with
+#   -w "done(vsmc_cluster_assign)"  if chained after 08_09.
+# ============================================================================
+set -euo pipefail
+module purge
+module load R/4.3.0 nlopt/2.7.1
+export R_LIBS_USER="-"
+export OMP_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
+
+SDIR=/sc/arion/work/kellej10/cadasil_public_ipsc/scripts
+PY=/sc/arion/work/kellej10/orion/envs/envs/orion-spatial/bin/python
+
+echo "=== 16_isoform_de.R ==="
+Rscript "$SDIR/16_isoform_de.R"
+
+echo "=== 26_vsmc_signature_interrogation.R ==="
+Rscript "$SDIR/26_vsmc_signature_interrogation.R"
+
+echo "=== 24_annotate_isoforms.py ==="
+"$PY" "$SDIR/24_annotate_isoforms.py"

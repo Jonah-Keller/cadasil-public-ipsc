@@ -1,0 +1,8 @@
+sample,cluster_id,meta_donor,meta_genotype,meta_protocol,n_called,n_het
+WZ12_CADASIL_Control,1,WT,wild_type,control,4919,2257
+WZ16_CADASIL_C224Y,2,C224Y,NOTCH3_p.C224Y,CADASIL,4694,2240
+WZ4_CADASIL_Control,3,WT,wild_type,control,4340,1684
+WZ8_CADASIL_Control,4,WT,wild_type,control,4823,2122
+XZ5_CADASIL_R153C,2,R153C,NOTCH3_p.R153C,CADASIL,5005,2373
+XZ6_CADASIL_R153C_isoCtrl,2,R153C,mutation_corrected,isogenic_control,4744,2265
+XZ7_CADASIL_C224Y_isoCtrl,3,C224Y,mutation_corrected,isogenic_control,4661,1837
