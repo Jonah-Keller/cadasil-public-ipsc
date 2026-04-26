@@ -1,8 +1,8 @@
-sample_id,err_id,cluster_id,donor_inferred,genotype_inferred,driver_variant,driver_vaf,driver_depth,meta_donor,meta_genotype,donor_mismatch,genotype_mismatch,sample_type,cell_type,n_called,n_het
-WZ12_CADASIL_Control,ERR15965983,1,SINGLETON_WT,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4919,2257
-WZ16_CADASIL_C224Y,ERR15965984,2,C224Y,CAD,p.C224Y,0.454,251,C224Y,WT,0,1,CADASIL,iPSC_derived_neural_crest_VSMC,4694,2240
-WZ4_CADASIL_Control,ERR15965985,3,WT_noVariant,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4340,1684
-WZ8_CADASIL_Control,ERR15965986,4,SINGLETON_WT,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4823,2122
-XZ5_CADASIL_R153C,ERR15965987,2,C224Y,CAD,p.C224Y,0.416,464,R153C,WT,1,1,CADASIL,iPSC_derived_neural_crest_VSMC,5005,2373
-XZ6_CADASIL_R153C_isoCtrl,ERR15965988,2,C224Y,ISO,p.C224Y,0.000,72,R153C,ISO,1,0,isogenic_control,iPSC_derived_neural_crest_VSMC,4744,2265
-XZ7_CADASIL_C224Y_isoCtrl,ERR15965989,3,WT_noVariant,WT,,,,C224Y,ISO,1,1,isogenic_control,iPSC_derived_neural_crest_VSMC,4661,1837
+sample_id,err_id,cluster_id,donor_inferred,genotype_inferred,driver_variant,driver_vaf,driver_depth,meta_donor,meta_genotype,donor_mismatch,genotype_mismatch,sample_type,cell_type,n_called,n_het,short_id,reported_status,actual_status,display_label
+WZ12_CADASIL_Control,ERR15965983,1,SINGLETON_WT,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4919,2257,WZ12,WT,WT,WZ12 (WT)
+WZ16_CADASIL_C224Y,ERR15965984,2,C224Y,CAD,p.C224Y,0.454,251,C224Y,WT,0,1,CADASIL,iPSC_derived_neural_crest_VSMC,4694,2240,WZ16,CAD-C224Y,CAD-C224Y,WZ16 (CAD-C224Y)
+WZ4_CADASIL_Control,ERR15965985,3,WT_noVariant,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4340,1684,WZ4,WT,WT,WZ4 (WT)
+WZ8_CADASIL_Control,ERR15965986,4,SINGLETON_WT,WT,,,,WT,WT,1,0,control,iPSC_derived_neural_crest_VSMC,4823,2122,WZ8,WT,WT,WZ8 (WT)
+XZ5_CADASIL_R153C,ERR15965987,2,C224Y,CAD,p.C224Y,0.416,464,R153C,WT,1,1,CADASIL,iPSC_derived_neural_crest_VSMC,5005,2373,XZ5,CAD-R153C,CAD-C224Y,XZ5 (CAD-R153C/CAD-C224Y)
+XZ6_CADASIL_R153C_isoCtrl,ERR15965988,2,C224Y,ISO,p.C224Y,0.000,72,R153C,ISO,1,0,isogenic_control,iPSC_derived_neural_crest_VSMC,4744,2265,XZ6,iCAD-R153C,iCAD-C224Y,XZ6 (iCAD-R153C/iCAD-C224Y)
+XZ7_CADASIL_C224Y_isoCtrl,ERR15965989,3,WT_noVariant,WT,,,,C224Y,ISO,1,1,isogenic_control,iPSC_derived_neural_crest_VSMC,4661,1837,XZ7,iCAD-C224Y,WT,XZ7 (iCAD-C224Y/WT)
